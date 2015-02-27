@@ -31,24 +31,40 @@ object ConsoleLogger {
   /**
    * An escape terminator is a character in the range `@` (decimal value 64) to `~` (decimal value 126).
    * It is the final character in an escape sequence.
+   *
+   * cf. http://en.wikipedia.org/wiki/ANSI_escape_code#CSI_codes
    */
+  @deprecated("No longer public.", "0.13.8")
   def isEscapeTerminator(c: Char): Boolean =
     c >= '@' && c <= '~'
 
   /**
-   * Test if the character AFTER an ESC is the ANSI CSI, which means more than two characters until terminatioin.
+   * Test if the character AFTER an ESC is the ANSI CSI.
+   *
+   * see: http://en.wikipedia.org/wiki/ANSI_escape_code
+   *
+   * The CSI (control sequence instruction) codes start with ESC + '['.   This is for testing the second character.
+   *
+   * There is an additional CSI (one character) that we could test for, but is not frequnetly used, and we don't
+   * check for it.
+   *
+   * cf. http://en.wikipedia.org/wiki/ANSI_escape_code#CSI_codes
    */
-  def isCSI(c: Char): Boolean = c == '['
+  private def isCSI(c: Char): Boolean = c == '['
 
   /**
    * Tests whether or not a character needs to immediately terminate the ANSI sequence.
+   *
+   * c.f. http://en.wikipedia.org/wiki/ANSI_escape_code#Sequence_elements
    */
-  def isSimpleEscapeTerminator(c: Char): Boolean = {
-    val n = c.toInt
-    (n >= 64) && (n <= 95)
-  }
+  private def isAnsiTwoCharacterTerminator(c: Char): Boolean =
+    (c >= '@') && (c <= '_')
 
-  /** Returns true if the string contains the ESC character. */
+  /**
+   * Returns true if the string contains the ESC character.
+   *
+   * TODO - this should handle raw CSI (not used much)
+   */
   def hasEscapeSequence(s: String): Boolean =
     s.indexOf(ESC) >= 0
 
@@ -74,9 +90,9 @@ object ConsoleLogger {
       val next: Int =
         // If it's a CSI we skip past it and then look for a terminator.
         if (isCSI(s.charAt(escIndex + 1))) skipESC(s, escIndex + 2)
-        else if (isSimpleEscapeTerminator(s.charAt(escIndex + 1))) escIndex + 2
+        else if (isAnsiTwoCharacterTerminator(s.charAt(escIndex + 1))) escIndex + 2
         else {
-          // It has to be a two character escape sequence, but we should validate this.
+          // There could be non-ANSI character sequences we should make sure we handle here.
           skipESC(s, escIndex + 1)
         }
       nextESC(s, next, sb)
