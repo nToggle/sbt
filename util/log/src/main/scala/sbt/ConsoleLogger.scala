@@ -35,6 +35,19 @@ object ConsoleLogger {
   def isEscapeTerminator(c: Char): Boolean =
     c >= '@' && c <= '~'
 
+  /**
+   * Test if the character AFTER an ESC is the ANSI CSI, which means more than two characters until terminatioin.
+   */
+  def isCSI(c: Char): Boolean = c == '['
+
+  /**
+   * Tests whether or not a character needs to immediately terminate the ANSI sequence.
+   */
+  def isSimpleEscapeTerminator(c: Char): Boolean = {
+    val n = c.toInt
+    (n >= 64) && (n <= 95)
+  }
+
   /** Returns true if the string contains the ESC character. */
   def hasEscapeSequence(s: String): Boolean =
     s.indexOf(ESC) >= 0
@@ -58,19 +71,28 @@ object ConsoleLogger {
       sb.append(s, start, s.length)
     else {
       sb.append(s, start, escIndex)
-      val next = skipESC(s, escIndex + 1)
+      val next: Int =
+        // If it's a CSI we skip past it and then look for a terminator.
+        if (isCSI(s.charAt(escIndex + 1))) skipESC(s, escIndex + 2)
+        else if (isSimpleEscapeTerminator(s.charAt(escIndex + 1))) escIndex + 2
+        else {
+          // It has to be a two character escape sequence, but we should validate this.
+          skipESC(s, escIndex + 1)
+        }
       nextESC(s, next, sb)
     }
   }
 
   /** Skips the escape sequence starting at `i-1`.  `i` should be positioned at the character after the ESC that starts the sequence. */
-  private[this] def skipESC(s: String, i: Int): Int =
-    if (i >= s.length)
+  private[this] def skipESC(s: String, i: Int): Int = {
+    if (i >= s.length) {
       i
-    else if (isEscapeTerminator(s.charAt(i)))
+    } else if (isEscapeTerminator(s.charAt(i))) {
       i + 1
-    else
+    } else {
       skipESC(s, i + 1)
+    }
+  }
 
   val formatEnabled =
     {
